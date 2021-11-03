@@ -54,19 +54,39 @@ public:
         } while(true);
     }
     
+    inline
+    void print_p(const char* str) {
+        do {
+            uint8_t value;
+            __asm__(
+                    "lpm %0, Z+"
+                    : "=r"(value), "=z"(str)
+                    : "z"(str)
+                    );
+            if(value == 0) {
+                return;
+            }
+            Output::send(value);
+        } while(true);
+    }
 };
 
 
 
 int setup() {
-    PStr s("ABCDE0987654321§1234567890");
-    
-    Stream<usart::Usart<usart::AsyncInternalClock<9600, true>>> u;
-    u.send(12);
-    u.print_string_P(s);
+
 }
 
 int main() {
-    setup();
-// write your code here
+    const char* p = PSTR("ABCDE0987654321§1234567890");
+    
+    Stream<usart::Usart<usart::AsyncInternalClock<9600, true>>> u;
+    //u.send('A');
+    while(1) {
+        u.print_p(p);
+        for(int i = 0; i < 100; ++i) {
+            u.send('-');
+        }
+    }
+    return 0x1122;
 }
