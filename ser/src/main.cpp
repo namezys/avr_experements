@@ -101,7 +101,8 @@ void print_p2() {
 
 inline
 void ppp(const char* str) {
-    asm volatile("CALL print_p2"::"z"(str), "m"(print_p2));
+    uint8_t *tmp;
+    asm volatile("CALL print_p2": "=z"(tmp): "z"(str), "m"(print_p2));
 }
 
 int setup() {
@@ -149,12 +150,59 @@ public:
 
 int main() {
     Logger<Level::Debug, Stream<usart::Usart<usart::AsyncInternalClock<9600, true>>>> logger;
-    const char *p = PSTR("ABCDE");
+    const char *p = PSTR("ABCDE1");
+    const char *p1 = PSTR("ABCDE2");
+    const char *p2 = PSTR("ABCDE3");
+    const char *p3 = PSTR("ABCDE4");
+    const char *p4 = PSTR("ABCDE5");
+    const char *p5 = PSTR("ABCD6");
+    const char *p6 = PSTR("ABCDE7");
+    const char *p7 = PSTR("ABCDE8");
+    const char *p8 = PSTR("ABCDE9");
+    const char *p9 = PSTR("ABCDEA");
+    const char *p0 = PSTR("ABCDEB");
+    const char *pa = PSTR("ABCDEC");
+    const char *p00 = PSTR("0ABCDE1");
+    const char *p10 = PSTR("0ABCDE2");
+    const char *p20 = PSTR("0ABCDE3");
+    const char *p30 = PSTR("0ABCDE4");
+    const char *p40 = PSTR("0ABCDE5");
+    const char *p50 = PSTR("0ABCD6");
+    const char *p60 = PSTR("0ABCDE7");
+    const char *p70 = PSTR("0ABCDE8");
+    const char *p80 = PSTR("0ABCDE9");
+    const char *p90 = PSTR("0ABCDEA");
+    const char *pa0 = PSTR("0ABCDEC");
+    
+    
+    
 //    logger.print_p2(p);
 //    logger.print_p2(p);
 //    logger.print_p2(PSTR("SDFGHJKL:"));
 while(1) {
-    ppp(PSTR("asdfghjkl"));
+    ppp(p);
+    ppp(p1);
+    ppp(p2);
+    ppp(p3);
+    ppp(p4);
+    ppp(p5);
+    ppp(p6);
+    ppp(p7);
+    ppp(p8);
+    ppp(p9);
+    ppp(p0);
+    ppp(pa);
+    ppp(p00);
+    ppp(p10);
+    ppp(p20);
+    ppp(p30);
+    ppp(p40);
+    ppp(p50);
+    ppp(p60);
+    ppp(p70);
+    ppp(p80);
+    ppp(p90);
+    ppp(pa0);
 }
     
     //LOG_D("DDD");
