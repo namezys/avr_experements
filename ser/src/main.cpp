@@ -119,8 +119,9 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
             "push r30\n\t"
             "push r31\n\t"
             // load buffer pointer and value
+            // high address can be loaded as high address of buffer
             "lds r30, current_buffer\n\t"
-            "lds r31, current_buffer + 1\n\t"
+            "ldi r31, hi8(buffer)\n\t"
             "ld r16, Z+\n\t"
             // check value and jump if necessary
             "cpi r16, 0\n\t"
@@ -152,7 +153,8 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
             :[USART_B]"M"(&UCSR0B),
              [USART_B_INT_MASK]"M"(0xFF ^ USART_TX_EMPTY_INT_MASK),
              [RXD]"M"(&UDR0),
-             "m"(current_buffer)
+             "m"(current_buffer),
+             "m"(buffer)
     );
 }
 
