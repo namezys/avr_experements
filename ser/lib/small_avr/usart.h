@@ -1,8 +1,12 @@
 #pragma once
 
-#include <assert.h>
-#include <avr/io.h>
+#include "../../../../../.platformio/packages/toolchain-atmelavr/avr/include/assert.h"
+#include "../../../../../.platformio/packages/toolchain-atmelavr/avr/include/avr/io.h"
 
+extern "C"
+void _low_level_send_p_string_from_z();
+extern "C"
+void _low_level_send_string_from_z();
 
 namespace usart {
     enum class SyncClockSendEdge {
@@ -27,10 +31,10 @@ namespace usart {
             static const bool double_speed = _double_speed;
             static const bool sync = _sync;
             static const bool falling_trx = false;
-        
+            
             static_assert(0 < ubrr && ubrr < 4096, "invalid baud setting for async mode");
             static_assert((real_baud > baud ? real_baud - baud : baud - real_baud) < 3 * baud / 100,
-                    "baud is out of possible 3% tolerance");
+                          "baud is out of possible 3% tolerance");
         };
         
         const uint8_t ASYNC_DIVISOR = 16;
@@ -105,7 +109,7 @@ namespace usart {
             UBRR0H = static_cast<uint8_t>(Clock::ubrr >> 8u) & 0x0Fu;
             UBRR0L = static_cast<uint8_t>(Clock::ubrr);
         }
-    
+        
         static
         uint8_t parity_mask() {
             if(FrameFormat::parity_mode == ParityMode::Even) {
@@ -116,7 +120,7 @@ namespace usart {
             }
             return 0u;
         }
-    
+        
         static
         uint8_t char_size_mask_ucsr_b() {
             //we now that size can be only from 5 to 9
@@ -134,7 +138,7 @@ namespace usart {
                     return 0u;
             }
         }
-    
+        
         void init_ucsr() {
             const uint8_t ucsr = parity_mask() | char_size_mask_ucsr_b() |
                                  (Clock::sync ? SYNC_MODE_MASK : 0u) |
@@ -147,12 +151,12 @@ namespace usart {
                     (FrameFormat::character_size == 9 ? CH_SIZE_9B : 0u);
             UCSR0C = ucsr;
         }
-
+    
     public:
         
         explicit
         Usart(bool init = true) {
-            if (init) {
+            if(init) {
                 Usart::init();
             }
         }
@@ -163,7 +167,7 @@ namespace usart {
             init_ucsr();
             State::set_inited(true);
         }
-    
+        
         /**
          * Synchronize transmit 8-bit. Wait until data register will be writen.
          * @param data
@@ -175,5 +179,30 @@ namespace usart {
             }
             UDR0 = data;
         }
+    
+        /**
+         * Synchonize transmit null-terminated string from data space
+         * @param str
+         */
+        inline
+        void send_string(const char *str) {
+            uint8_t *tmp;
+            asm volatile("CALL _low_level_send_string_from_z"
+            : "=z"(tmp)
+            : "z"(str), "m"(_low_level_send_string_from_z));
+        }
+        
+        /**
+         * Synchonize transmit null-terminated string from program space
+         * @param str
+         */
+        inline
+        void send_pm_string(const char *pm_str) {
+            uint8_t *tmp;
+            asm volatile("CALL _low_level_send_p_string_from_z"
+            : "=z"(tmp)
+            : "z"(pm_str), "m"(_low_level_send_p_string_from_z));
+        }
+        
     };
 }

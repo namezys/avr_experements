@@ -5,84 +5,66 @@ __SREG__ = 0x3f
 __tmp_reg__ = 0
 __zero_reg__ = 1
 	.text
-	.section	.text.print_p2,"ax",@progbits
-.global	print_p2
-	.type	print_p2, @function
-print_p2:
-/* prologue: function */
-/* frame size = 0 */
-/* stack size = 0 */
-.L__stack_usage = 0
-/* #APP */
- ;  84 "./src/main.cpp" 1
-	
-LOAD_5:
-	lpm __zero_reg__, Z+
-	tst __zero_reg__
-	breq FINISH_5
-CHECK_5:
-	lds __tmp_reg__, 192
-	sbrs __tmp_reg__, 5
-	rjmp CHECK_5
-	sts 198, __zero_reg__
-	rjmp LOAD_5
-FINISH_5:
-
- ;  0 "" 2
-/* #NOAPP */
-/* epilogue start */
-	ret
-	.size	print_p2, .-print_p2
-	.section	.text._Z5setupv,"ax",@progbits
-.global	_Z5setupv
-	.type	_Z5setupv, @function
-_Z5setupv:
-/* prologue: function */
-/* frame size = 0 */
-/* stack size = 0 */
-.L__stack_usage = 0
-	ldi r25,0
-	ldi r24,0
-/* epilogue start */
-	ret
-	.size	_Z5setupv, .-_Z5setupv
 	.section	.text.startup.main,"ax",@progbits
 .global	main
 	.type	main, @function
 main:
+	rcall .
+	rcall .
+	in r28,__SP_L__
+	in r29,__SP_H__
 /* prologue: function */
-/* frame size = 0 */
-/* stack size = 0 */
-.L__stack_usage = 0
+/* frame size = 4 */
+/* stack size = 4 */
+.L__stack_usage = 4
 	sts 197,__zero_reg__
-	ldi r24,lo8(-49)
-	sts 196,r24
-	ldi r24,lo8(2)
-	sts 192,r24
-	ldi r24,lo8(24)
-	sts 193,r24
+	ldi r19,lo8(-49)
+	sts 196,r19
+	ldi r18,lo8(2)
+	sts 192,r18
+	ldi r25,lo8(24)
+	sts 193,r25
 	ldi r24,lo8(6)
 	sts 194,r24
-	ldi r24,lo8(_ZZ4mainE3__c)
-	ldi r25,hi8(_ZZ4mainE3__c)
+	sts 197,__zero_reg__
+	sts 196,r19
+	sts 192,r18
+	sts 193,r25
+	sts 194,r24
+	ldi r18,lo8(43)
+.L5:
+	std Y+1,__zero_reg__
+	std Y+2,__zero_reg__
+	std Y+3,__zero_reg__
+	std Y+4,__zero_reg__
+.L2:
+	ldd r24,Y+1
+	ldd r25,Y+2
+	ldd r26,Y+3
+	ldd r27,Y+4
+	cp r24,__zero_reg__
+	sbci r25,106
+	sbci r26,24
+	cpc r27,__zero_reg__
+	brlo .L3
 .L4:
-	movw r30,r24
-/* #APP */
- ;  105 "./src/main.cpp" 1
-	CALL print_p2
- ;  0 "" 2
-/* #NOAPP */
-	movw r30,r24
-/* #APP */
- ;  105 "./src/main.cpp" 1
-	CALL print_p2
- ;  0 "" 2
-/* #NOAPP */
+	lds r24,192
+	sbrs r24,5
 	rjmp .L4
+	sts 198,r18
+	rjmp .L5
+.L3:
+	ldd r24,Y+1
+	ldd r25,Y+2
+	ldd r26,Y+3
+	ldd r27,Y+4
+	adiw r24,1
+	adc r26,__zero_reg__
+	adc r27,__zero_reg__
+	std Y+1,r24
+	std Y+2,r25
+	std Y+3,r26
+	std Y+4,r27
+	rjmp .L2
 	.size	main, .-main
-	.section	.progmem.data._ZZ4mainE3__c,"a"
-	.type	_ZZ4mainE3__c, @object
-	.size	_ZZ4mainE3__c, 6
-_ZZ4mainE3__c:
-	.string	"ABCDE"
 	.ident	"GCC: (Homebrew AVR GCC 11.1.0_1) 11.1.0"
