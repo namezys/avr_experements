@@ -100,51 +100,51 @@
 //    }
 //}
 
-//const uint8_t size = 32;
-//uint8_t buffer[size + 1] __attribute__(( aligned(32) ));
-//const uint8_t* buffer_end = buffer + size;
-//uint8_t* current_buffer;
-//
-//
-//ISR(USART_UDRE_vect)
-//{
-//    if (*current_buffer == 0) {
-//        // disabled vector
-//    } else {
-//        UDR0 = *current_buffer;
-//        UDR0++;
-//    }
-//}
-//
-//void init()
-//{
-//    buffer[0] = 0;
-//    buffer[size] = 0;
-//}
-//
-//void save(const char* str)
-//{
-//    cli();
-//    uint8_t* b = buffer;
-//    for(;*str != 0; ++str, ++b) {
-//        *b = *str;
-//    }
-//    *b = 0;
-//    current_buffer = buffer;
-//    UCSR0B = UCSR0B | (1 << UDRIE0);
-//    sei();
-//}
+const uint8_t size = 32;
+uint8_t buffer[size + 1] __attribute__(( aligned(32) ));
+const uint8_t* buffer_end = buffer + size;
+uint8_t* current_buffer;
+
+
+ISR(USART_UDRE_vect)
+{
+    if (*current_buffer == 0) {
+        UCSR0B = UCSR0B & ~(1 << UDRIE0);
+    } else {
+        UDR0 = *current_buffer;
+        current_buffer++;
+    }
+}
+
+void init()
+{
+    buffer[0] = 0;
+    buffer[size] = 0;
+}
+
+void save(const char* str)
+{
+    cli();
+    uint8_t* b = buffer;
+    for(;*str != 0; ++str, ++b) {
+        *b = *str;
+    }
+    *b = 0;
+    current_buffer = buffer;
+    UCSR0B = UCSR0B | (1 << UDRIE0);
+    sei();
+}
 
 int main() {
     usart::Usart<usart::AsyncInternalClock<9600, true>> u; u.init();
-    //init();
+    init();
     while(1) {
-        //save("sdfghjkl");
+        save("sdfghjkl");
         
-        for(volatile uint32_t i = 0; i < F_CPU / 10;) {
+        for(volatile uint32_t i = 0; i < F_CPU / 30;) {
             i = i + 1;
         }
-        u.send('+');
+        //u.send('+');
     }
 //    init();
 //    send();
