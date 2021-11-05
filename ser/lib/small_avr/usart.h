@@ -1,12 +1,15 @@
 #pragma once
 
-#include "../../../../../.platformio/packages/toolchain-atmelavr/avr/include/assert.h"
-#include "../../../../../.platformio/packages/toolchain-atmelavr/avr/include/avr/io.h"
+#include <assert.h>
+#include <avr/io.h>
 
-extern "C"
+extern "C" {
+// these functions include asm code which should not been inlined
+// also, these functions can brok ABI
+
 void _low_level_send_p_string_from_z();
-extern "C"
 void _low_level_send_string_from_z();
+}
 
 namespace usart {
     enum class SyncClockSendEdge {
@@ -18,7 +21,12 @@ namespace usart {
         Disabled, Even, Odd
     };
     
+    /** Internal namespace, an user should not use it */
     namespace details {
+        /// size of usart buffer
+        const uint8_t _usart_0_buffer_size = 32 - 1;
+        
+        /** Base class for clock setting s*/
         template<uint32_t _baud, bool _double_speed, uint8_t _divisor, bool _sync, bool _falling_trx>
         class InternalClock {
         public:
@@ -70,6 +78,12 @@ namespace usart {
         static_assert(stop_bits == 1 || stop_bits == 2, "allowed only 1- or 2-stop bits");
     };
     
+    /**
+     * State which doesn't save actual state.
+     *
+     * Can be used if you don't care about current initiation state.
+     * An user should care about setting up USART because there will not any error message
+     */
     class DummyState {
     public:
         static const bool is_inited = true;
@@ -78,6 +92,9 @@ namespace usart {
         void set_inited(bool) {}
     };
     
+    /**
+     * State which store current initiation state.
+     */
     class SavedState {
     public:
         bool is_inited = false;
@@ -104,14 +121,14 @@ namespace usart {
         static const uint8_t STOP_2B = (1 << USBS0);
         static const uint8_t CH_SIZE_9B = (1 << UCSZ02);
         
-        void init_ubrr() {
+        void _init_ubrr() {
             // we know that ubrr must fit into 4 + 8 bits
             UBRR0H = static_cast<uint8_t>(Clock::ubrr >> 8u) & 0x0Fu;
             UBRR0L = static_cast<uint8_t>(Clock::ubrr);
         }
         
         static
-        uint8_t parity_mask() {
+        uint8_t _parity_mask() {
             if(FrameFormat::parity_mode == ParityMode::Even) {
                 return (1 << UPM01) | (0 << UPM00);
             }
@@ -122,7 +139,7 @@ namespace usart {
         }
         
         static
-        uint8_t char_size_mask_ucsr_b() {
+        uint8_t _char_size_mask_ucsr_b() {
             //we now that size can be only from 5 to 9
             switch(FrameFormat::character_size) {
                 case 5:
@@ -139,8 +156,8 @@ namespace usart {
             }
         }
         
-        void init_ucsr() {
-            const uint8_t ucsr = parity_mask() | char_size_mask_ucsr_b() |
+        void _init_ucsr() {
+            const uint8_t ucsr = _parity_mask() | _char_size_mask_ucsr_b() |
                                  (Clock::sync ? SYNC_MODE_MASK : 0u) |
                                  (Clock::falling_trx ? SYNC_FALL_TRX : 0u) |
                                  (FrameFormat::stop_bits == 2 ? STOP_2B : STOP_1B);
@@ -163,8 +180,8 @@ namespace usart {
         
         /** Init device with provided parameters */
         void init() {
-            init_ubrr();
-            init_ucsr();
+            _init_ubrr();
+            _init_ucsr();
             State::set_inited(true);
         }
         
@@ -173,19 +190,20 @@ namespace usart {
          * @param data
          */
         inline
-        void send(uint8_t data) {
+        void sync_send(uint8_t data) {
             assert(State::is_inited);
             while(!(UCSR0A & (1 << UDRE0))) {
             }
             UDR0 = data;
         }
-    
+        
         /**
-         * Synchonize transmit null-terminated string from data space
+         * Synchronize transmit null-terminated string from data space
          * @param str
          */
         inline
-        void send_string(const char *str) {
+        void sync_send_string(const char *str) {
+            assert(State::is_inited);
             uint8_t *tmp;
             asm volatile("CALL _low_level_send_string_from_z"
             : "=z"(tmp)
@@ -197,12 +215,11 @@ namespace usart {
          * @param str
          */
         inline
-        void send_pm_string(const char *pm_str) {
+        void sync_send_pm_string(const char *pm_str) {
             uint8_t *tmp;
             asm volatile("CALL _low_level_send_p_string_from_z"
             : "=z"(tmp)
             : "z"(pm_str), "m"(_low_level_send_p_string_from_z));
         }
-        
     };
 }

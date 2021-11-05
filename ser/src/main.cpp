@@ -101,10 +101,10 @@
 //}
 
 extern "C" {
-const uint8_t size = 256 - 1;
-uint8_t buffer[size + 1] __attribute__(( aligned(256)));
-const uint8_t *buffer_end = buffer + size;
-uint8_t *current_buffer;
+const uint8_t _usart_0_buffer_size = 256 - 1;
+uint8_t _usart_0_buffer[_usart_0_buffer_size + 1] __attribute__(( aligned(256)));
+const uint8_t *buffer_end = _usart_0_buffer + _usart_0_buffer_size;
+uint8_t *_usart_0_current_buffer_position;
 
 const uint8_t USART_TX_EMPTY_INT_MASK = (1 << UDRIE0);
 const uint8_t USART_TX_EMPTY_INT_INV_MASK = static_cast<uint8_t>(~USART_TX_EMPTY_INT_MASK);
@@ -153,8 +153,8 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
             :[USART_B]"M"(&UCSR0B),
              [USART_B_INT_MASK]"M"(0xFF ^ USART_TX_EMPTY_INT_MASK),
              [RXD]"M"(&UDR0),
-             "m"(current_buffer),
-             "m"(buffer)
+             "m"(_usart_0_current_buffer_position),
+             "m"(_usart_0_buffer)
     );
 }
 
@@ -162,8 +162,8 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
 
 void init()
 {
-    buffer[0] = 0;
-    buffer[size] = 0;
+    _usart_0_buffer[0] = 0;
+    _usart_0_buffer[_usart_0_buffer_size] = 0;
 }
 
 void save(const char* str)
@@ -203,12 +203,12 @@ void save(const char* str)
     //  f4:	80 93 20 01 	sts	0x0120, r24	; 0x800120 <current_buffer>
     //  f8:	eb cf       	rjmp	.-42     	; 0xd0 <__vector_19+0x2a>
     cli();
-    uint8_t* b = buffer;
+    uint8_t* b = _usart_0_buffer;
     for(;*str != 0; ++str, ++b) {
         *b = *str;
     }
     *b = 0;
-    current_buffer = buffer;
+    _usart_0_current_buffer_position = _usart_0_buffer;
     UCSR0B = UCSR0B | (1 << UDRIE0);
     sei();
 }
