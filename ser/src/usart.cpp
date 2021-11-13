@@ -2,16 +2,25 @@
 #include <avr/interrupt.h>
 #include "usart.h"
 
+using namespace sarv::usart;
+using namespace details;
+
 extern "C" {
-static_assert(usart::details::_usart_0_buffer_size < 255,
-        "maximum 255 buffer size is supported because of optimization");
+
+static_assert(_buffer_size <= 128, "maximum 255 buffer size is supported because of optimization");
+
 /// buffer for usart data, every item must have same high address
-uint8_t _usart_0_buffer[usart::details::_usart_0_buffer_size + 1] __attribute__(( aligned(128)));
+uint8_t _usart_0_buffer[_buffer_size] __attribute__(( aligned(_buffer_size))) = {};
+
 /// current buffer position which should be send to usart
-uint8_t *_usart_0_current_buffer_position;
-/// Transmission data register empty interrupt mask
+uint8_t *_usart_0_current_buffer_position = _usart_0_buffer;
+
+/// Interrupt mask: tx data register is empty
 const uint8_t USART_TX_EMPTY_INT_MASK = (1 << UDRIE0);
 
+/// Sync send string from flash memory
+///
+/// Wait until last character will be writen to tx data register.
 extern "C"
 void _low_level_send_p_string_from_z() {
     uint8_t *tmp;
@@ -39,6 +48,9 @@ void _low_level_send_p_string_from_z() {
     );
 }
 
+///  Sync send string
+///
+///  Wait until last character will be writen to tx data register.
 void _low_level_send_string_from_z() {
     uint8_t *tmp;
     asm volatile(
@@ -60,6 +72,9 @@ void _low_level_send_string_from_z() {
     );
 }
 
+// Send data from usart buffer using interruption
+//
+// On empty tx data register write next character from buffer
 ISR(USART_UDRE_vect, ISR_NAKED) {
     asm volatile(
     "\n\t"
@@ -71,8 +86,8 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
     "push r31\n\t"
     // load buffer pointer and value
     // high address can be loaded as high address of buffer
-    "lds r30, _usart_0_current_buffer_position\n\t"
-    "ldi r31, hi8(_usart_0_buffer)\n\t"
+    "lds r30, %[CUR_BUFFER_POS]\n\t"
+    "ldi r31, hi8(%[BUFF])\n\t"
     "ld r16, Z+\n\t"
     // check value and jump if necessary
     "cpi r16, 0\n\t"
@@ -80,7 +95,7 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
     // send to tx register and save new current buffer
     // because of alignment, hi8 of this buffer will not changed
     "sts %[RXD], r16\n\t"
-    "sts _usart_0_current_buffer_position, r30\n\t"
+    "sts %[CUR_BUFFER_POS], r30\n\t"
     // restore state
     "pop r31\n\t"
     "pop r30\n\t"
@@ -102,7 +117,8 @@ ISR(USART_UDRE_vect, ISR_NAKED) {
     "reti\n\t"
     :
     :[USART_B]"M"(&UCSR0B), [USART_B_INT_MASK]"M"(0xFF ^ USART_TX_EMPTY_INT_MASK),
-    [RXD]"M"(&UDR0), "m"(_usart_0_current_buffer_position), "m"(_usart_0_buffer)
+    [RXD]"M"(&UDR0), [CUR_BUFFER_POS]"m"(_usart_0_current_buffer_position),
+    [BUFF]"m"(_usart_0_buffer)
     );
 }
 

@@ -1,5 +1,7 @@
-#include <usart.h>
 #include <avr/pgmspace.h>
+
+#include "usart.h"
+#include "reset_status.h"
 
 // #include <Arduino.h>
 
@@ -100,134 +102,98 @@
 //    }
 //}
 
-extern "C" {
-const uint8_t _usart_0_buffer_size = 256 - 1;
-uint8_t _usart_0_buffer[_usart_0_buffer_size + 1] __attribute__(( aligned(256)));
-const uint8_t *buffer_end = _usart_0_buffer + _usart_0_buffer_size;
-uint8_t *_usart_0_current_buffer_position;
+template<uint8_t _stack_size = 64>
+class Task {
+private:
+    uint8_t _r2;
+    uint8_t _r3;
+    uint8_t _sreg;
+    uint8_t _stack[_stack_size];
 
-const uint8_t USART_TX_EMPTY_INT_MASK = (1 << UDRIE0);
-const uint8_t USART_TX_EMPTY_INT_INV_MASK = static_cast<uint8_t>(~USART_TX_EMPTY_INT_MASK);
-
-ISR(USART_UDRE_vect, ISR_NAKED) {
-    asm volatile(
-            "\n\t"
-            // save state
-            "push r16\n\t"
-            "in r16, __SREG__\n\t"
-            "push r16\n\t"
-            "push r30\n\t"
-            "push r31\n\t"
-            // load buffer pointer and value
-            // high address can be loaded as high address of buffer
-            "lds r30, current_buffer\n\t"
-            "ldi r31, hi8(buffer)\n\t"
-            "ld r16, Z+\n\t"
-            // check value and jump if necessary
-            "cpi r16, 0\n\t"
-            "breq STOP_%=\n\t"
-            // send to tx register and save new current buffer
-            // because of alignment, hi8 of this buffer will not changed
-            "sts %[RXD], r16\n\t"
-            "sts current_buffer, r30\n\t"
-            // restore state
-            "pop r31\n\t"
-            "pop r30\n\t"
-            "pop r16\n\t"
-            "out __SREG__, r16\n\t"
-            "pop r16\n\t"
-            "reti\n\t"
-            // stop send using interrupt
-            "STOP_%=:\n\t"
-            "lds r16, %[USART_B]\n\t"
-            "andi r16, %[USART_B_INT_MASK]\n\t"
-            "sts %[USART_B], r16\n\t"
-            // restore state
-            "pop r31\n\t"
-            "pop r30\n\t"
-            "pop r16\n\t"
-            "out __SREG__, r16\n\t"
-            "pop r16\n\t"
-            "reti\n\t"
-            :
-            :[USART_B]"M"(&UCSR0B),
-             [USART_B_INT_MASK]"M"(0xFF ^ USART_TX_EMPTY_INT_MASK),
-             [RXD]"M"(&UDR0),
-             "m"(_usart_0_current_buffer_position),
-             "m"(_usart_0_buffer)
-    );
-}
-
-}
-
-void init()
-{
-    _usart_0_buffer[0] = 0;
-    _usart_0_buffer[_usart_0_buffer_size] = 0;
-}
-
-void save(const char* str)
-{
-
-    //  a6:	1f 92       	push	r1
-    //  a8:	0f 92       	push	r0
-    //  aa:	0f b6       	in	r0, 0x3f	; 63
-    //  ac:	0f 92       	push	r0
-    //  ae:	11 24       	eor	r1, r1
-    //  b0:	8f 93       	push	r24
-    //  b2:	9f 93       	push	r25
-    //  b4:	ef 93       	push	r30
-    //  b6:	ff 93       	push	r31
-    //  b8:	e0 91 20 01 	lds	r30, 0x0120	; 0x800120 <current_buffer>
-    //  bc:	f0 91 21 01 	lds	r31, 0x0121	; 0x800121 <current_buffer+0x1>
-    //  c0:	80 81       	ld	r24, Z
-    //  c2:	81 11       	cpse	r24, r1
-    //  c4:	0e c0       	rjmp	.+28     	; 0xe2 <__vector_19+0x3c>
-    //  c6:	80 91 c1 00 	lds	r24, 0x00C1	; 0x8000c1 <__TEXT_REGION_LENGTH__+0x7e00c1>
-    //  ca:	8f 7d       	andi	r24, 0xDF	; 223
-    //  cc:	80 93 c1 00 	sts	0x00C1, r24	; 0x8000c1 <__TEXT_REGION_LENGTH__+0x7e00c1>
-    //  d0:	ff 91       	pop	r31
-    //  d2:	ef 91       	pop	r30
-    //  d4:	9f 91       	pop	r25
-    //  d6:	8f 91       	pop	r24
-    //  d8:	0f 90       	pop	r0
-    //  da:	0f be       	out	0x3f, r0	; 63
-    //  dc:	0f 90       	pop	r0
-    //  de:	1f 90       	pop	r1
-    //  e0:	18 95       	reti
-    //  e2:	80 93 c6 00 	sts	0x00C6, r24	; 0x8000c6 <__TEXT_REGION_LENGTH__+0x7e00c6>
-    //  e6:	80 91 20 01 	lds	r24, 0x0120	; 0x800120 <current_buffer>
-    //  ea:	90 91 21 01 	lds	r25, 0x0121	; 0x800121 <current_buffer+0x1>
-    //  ee:	01 96       	adiw	r24, 0x01	; 1
-    //  f0:	90 93 21 01 	sts	0x0121, r25	; 0x800121 <current_buffer+0x1>
-    //  f4:	80 93 20 01 	sts	0x0120, r24	; 0x800120 <current_buffer>
-    //  f8:	eb cf       	rjmp	.-42     	; 0xd0 <__vector_19+0x2a>
-    cli();
-    uint8_t* b = _usart_0_buffer;
-    for(;*str != 0; ++str, ++b) {
-        *b = *str;
+public:
+    
+    void give() {
+        asm volatile(
+                "sts %[S_R2], r2\n\t"
+                "sts %[S_R3], r3\n\t"
+                :
+                [S_R2]"=m"(_r2),
+                [S_R3]"=m"(_r3)
+                :
+                :
+                    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+                    "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
+                    "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"
+                );
     }
-    *b = 0;
-    _usart_0_current_buffer_position = _usart_0_buffer;
-    UCSR0B = UCSR0B | (1 << UDRIE0);
-    sei();
+};
+
+void schedule() {}
+
+void resume()
+{
 }
+
+void suspend()
+{
+}
+
+//class BaseTask {
+//private:
+//    uint16_t _stack_pointer;
+//
+//public:
+//
+//
+//
+//    void yield() {
+//        uint8_t stack_high;
+//        uint8_t stack_low;
+//        asm volatile(
+//                "CALL AAAA"
+//        :
+//        :"m"(suspend)
+//        :
+//        "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+//                "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
+//                "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"
+//        );
+//    }
+//};
+
+//
+//Task<128> task_test;
+//
+//
+
 
 int main() {
-    usart::Usart<usart::AsyncInternalClock<9600, true>> u;
-    init();
-    while(1) {
-        save("sdfghjkl");
-        
-        for(volatile uint32_t i = 0; i < F_CPU / 30;) {
-            i = i + 1;
-        }
-        u.send('+');
-    }
+//    BaseTask bt;
+//
+//    bt.yield();
+//
+//    usart::Usart<usart::AsyncClock<9600, true>> u;
+//    init();
+//    while(1) {
+//        save("sdfghjkl");
+//
+//        for(volatile uint32_t i = 0; i < F_CPU / 30;) {
+//            i = i + 1;
+//        }
+//        u.send('+');
+//    }
 //    init();
 //    send();
+    using namespace sarv;
+    usart::Usart<usart::AsyncClock<9600>> usart1;
+    while(1) {
+        usart1.save_string(P("qwertyuiop;lkjhgfdsazxcvbnm,."));
+        usart1.save_string(P("><MNBVCXZASDFGHJKL:POIUYTREWQ"));
+    }
+    return 0;
     
-//    Logger<Level::Debug, Stream<usart::Usart<usart::AsyncInternalClock<9600, true>>>> logger;
+//    usart1.save("ASDFGHJKL:OIUYTREWSDFGHJK");
+    
 //    const char *p = PSTR("ABCDE1");
 //    const char *s = "qwertyuiop";
 //    const char *ss = "qdkljdwdjkldertdkjljdyuiop";
