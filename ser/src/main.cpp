@@ -1,7 +1,9 @@
 #include <avr/pgmspace.h>
+#include <util/delay.h>
 
 #include "usart.h"
 #include "reset_status.h"
+#include "port.h"
 
 // #include <Arduino.h>
 
@@ -138,6 +140,75 @@ void suspend()
 {
 }
 
+/// Disable pull up for all I/O ports
+///
+/// Nested scope instanced is not allowed
+class PullDisable {
+protected:
+    static const uint8_t PUD_MASK = 1 << PUD;
+    
+public:
+    explicit
+    PullDisable(bool turn_on = true, bool ignore_initial_state = true) {
+        if (turn_on) {
+            PullDisable::turn_on(ignore_initial_state);
+        }
+    }
+    ~PullDisable() {
+        turn_off();
+    }
+    
+    static
+    void turn_on(bool ignore_initial_state = true) {
+        assert(ignore_initial_state || !(MCUCR & PUD_MASK));
+        MCUCR |= PUD_MASK;
+    }
+    
+    static
+    void turn_off() {
+        MCUSR = MCUCR & ~PUD_MASK;
+    }
+};
+
+namespace B {
+    volatile uint8_t pin __attribute__((io (0x03 + __SFR_OFFSET)));
+    volatile uint8_t ddr __attribute__((io (0x04 + __SFR_OFFSET)));
+    volatile uint8_t port __attribute__((io (0x05 + __SFR_OFFSET)));
+}
+
+
+
+
+
+
+template<uint8_t bit>
+class PortBit {
+public:
+    static_assert(0 <= bit && bit < 8, "Invalid port bit");
+    
+    static const uint8_t mask = (1 << bit);
+    static const uint8_t inv_mask = ~mask;
+};
+
+
+
+//
+//class PortC: public Port {
+//
+//public:
+//    PortC(): Port(DDRC, PORTC, PINC) {}
+//};
+//
+//class PortD: public Port {
+//
+//public:
+//    PortD(): Port(DDRD, PORTD, PIND) {}
+//};
+//
+//PortC portC;
+//PortD portD;
+
+
 //class BaseTask {
 //private:
 //    uint16_t _stack_pointer;
@@ -166,8 +237,55 @@ void suspend()
 //
 //
 
+volatile uint8_t porta __attribute__((io (0x05 + __SFR_OFFSET)));
+
+constexpr
+volatile uint8_t* io_register(int offset)
+{
+    return static_cast<volatile uint8_t*>(0x0) + offset;
+}
+
+template<volatile uint8_t& v>
+class P {
+public:
+    static
+    void a() {
+        v |= 0x08;
+    }
+};
+
+volatile uint8_t& d = DDRB;
+
 
 int main() {
+    using namespace sarv;
+    
+    usart::Usart<usart::AsyncClock<9600, true>> uart;
+    uart.sync_send(PN("Start"));
+    port::Output<port::PortB, 2> output;
+    while(true) {
+        _delay_ms(1000);
+        uart.sync_send(PN("Send high"));
+        output.set_high();
+        _delay_ms(1000);
+        uart.sync_send(PN("Send low"));
+        output.set_low();
+    }
+    
+//
+//    u.sync_send(PS("Output set"));
+    
+//    while(1) {
+//        _delay_ms(1000);
+//
+        //output.set_high();
+//        _delay_ms(500);
+//
+        //portB.set_output_value<0>(false);
+//    }
+    return 0x1A;
+    
+//    PullDisable ddis;
 //    BaseTask bt;
 //
 //    bt.yield();
@@ -184,13 +302,15 @@ int main() {
 //    }
 //    init();
 //    send();
-    using namespace sarv;
-    usart::Usart<usart::AsyncClock<9600>> usart1;
-    while(1) {
-        usart1.save_string(P("qwertyuiop;lkjhgfdsazxcvbnm,."));
-        usart1.save_string(P("><MNBVCXZASDFGHJKL:POIUYTREWQ"));
-    }
-    return 0;
+//    using namespace sarv;
+//    usart::Usart<usart::AsyncClock<9600>> usart1;
+//    for(int i = 100; i > 0; i--) {
+//        usart1.save_string(P("qwertyuiop;lkjhgfdsazxcvbnm,."));
+//        usart1.save_string(S("><MNBVCXZASDFGHJKL:POIUYTREWQ"));
+//        usart1.save_string(P("qwertyuiop;lkjhgfdsazxcvdsfsdsbnm,."));
+//        usart1.save_string(S("><MNBVCXZASDFGHJKL:POIUYTREWsdfsfQ"));
+//    }
+//    return 0;
     
 //    usart1.save("ASDFGHJKL:OIUYTREWSDFGHJK");
     

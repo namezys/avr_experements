@@ -185,7 +185,15 @@ namespace sarv {
                 _init_ucsr();
                 State::set_inited(true);
             }
+    
+            void sync_send(const PmStr& str) {
+                sync_send_pm_string(str.ptr());
+            }
             
+            void sync_send(const ConstStr& str) {
+                sync_send_string(str.ptr());
+            }
+    
             /**
              * Synchronize transmit 8-bit. Wait until data send to register.
              *
@@ -222,7 +230,7 @@ namespace sarv {
             void sync_send_pm_string(const char *pm_str) {
                 assert(State::is_inited);
                 uint8_t *tmp;
-                asm volatile("CALL %[C_FUN]"
+                asm volatile("CALL _low_level_send_p_string_from_z"
                 : "=z"(tmp)
                 : "z"(pm_str), [C_FUN]"m"(_low_level_send_p_string_from_z));
             }

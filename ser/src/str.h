@@ -16,6 +16,10 @@ namespace sarv {
         void incr() {
             _ptr++;
         }
+        
+        const char* ptr() const {
+            return _ptr;
+        }
     };
     
     class ConstStr: public BaseStr {
@@ -48,3 +52,6 @@ namespace sarv {
 
 #define P(x) sarv::PmStr(PSTR(x))
 #define S(x) sarv::ConstStr(x)
+
+#define PN(x) P(x "\n")
+#define SN(x) P(x "\n")
