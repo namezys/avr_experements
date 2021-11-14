@@ -113,5 +113,27 @@ namespace sarv {
                 set(false);
             }
         };
+        
+        template<class Port, uint8_t bit, bool pull_up = true>
+        class Input: public Port, protected PortBit<bit> {
+        public:
+            explicit Input(bool a_init = true) {
+                if (a_init) {
+                    init();
+                }
+            }
+            
+            void init() {
+                Port::template set_input<bit>(pull_up);
+            }
+            
+            bool value() const {
+                return Port::template get_input_value<bit>();
+            }
+            
+            operator bool() const {
+                return value();
+            }
+        };
     }
 }

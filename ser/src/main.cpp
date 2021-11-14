@@ -263,13 +263,28 @@ int main() {
     usart::Usart<usart::AsyncClock<9600, true>> uart;
     uart.sync_send(PN("Start"));
     port::Output<port::PortB, 2> output;
+    port::Input<port::PortB, 0> input;
+    _delay_ms(1000);
+    uart.sync_send(PN("Start cycle"));
+    bool state = input;
     while(true) {
-        _delay_ms(1000);
-        uart.sync_send(PN("Send high"));
-        output.set_high();
-        _delay_ms(1000);
-        uart.sync_send(PN("Send low"));
-        output.set_low();
+//        _delay_ms(1000);
+//        uart.sync_send(PN("Send high"));
+//        output.set_high();
+//        _delay_ms(1000);
+//        uart.sync_send(PN("Send low"));
+//        output.set_low();
+        if (state) {
+            if (!input) {
+                uart.sync_send(PN("Go to lower state"));
+                state = false;
+            }
+        } else {
+            if (input) {
+                uart.sync_send(PN("Go to high state"));
+                state = true;
+            }
+        }
     }
     
 //
