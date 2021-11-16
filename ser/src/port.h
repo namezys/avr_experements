@@ -112,6 +112,10 @@ namespace sarv {
             void set_low() {
                 set(false);
             }
+            
+            void operator=(bool is_high) {
+                set(is_high);
+            }
         };
         
         template<class Port, uint8_t bit, bool pull_up = true>

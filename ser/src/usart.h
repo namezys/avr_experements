@@ -216,7 +216,7 @@ namespace sarv {
             void sync_send_string(const char *str) {
                 assert(State::is_inited);
                 uint8_t *tmp;
-                asm volatile("CALL %[C_FUN]"
+                asm volatile("CALL _low_level_send_string_from_z"
                 : "=z"(tmp)
                 : "z"(str), [C_FUN]"m"(_low_level_send_string_from_z));
             }
