@@ -33,7 +33,7 @@ namespace sarv {
                 char buffer[] = " 0x00";
                 buffer[4] = '0' + value % 16;
                 buffer[3] = '0' + value / 16;
-                Usart::sync_send(ConstStr(buffer));
+                Usart::sync_send_string(buffer);
             }
     
             void _log_hex(uint16_t value) {
@@ -45,7 +45,7 @@ namespace sarv {
                 buffer[4] = '0' + value % 16;
                 value /= 16;
                 buffer[3] = '0' + value;
-                Usart::sync_send(ConstStr(buffer));
+                Usart::sync_send_string(buffer);
             }
     
         public:

@@ -96,7 +96,7 @@ int main() {
     while(true) {
         _delay_ms(1000);
         INFO("TEST8", c8);
-//        INFO("TEST16", c16);
+        INFO("TEST16", c16);
         c8 += 3;
         c16 += c8;
         if (!current_state) {
