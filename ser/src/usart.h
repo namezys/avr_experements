@@ -122,7 +122,7 @@ namespace savr::usart {
         }
     }
     
-    template<uint32_t _baud, bool _double_speed = false>
+    template<uint32_t _baud = 9600, bool _double_speed = false>
     class AsyncClock: public details::InternalClock<_baud, _double_speed,
             _double_speed ? details::ASYNC_DIVISOR_DOUBLE_SPEED : details::ASYNC_DIVISOR,
             false, false> {

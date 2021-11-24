@@ -116,6 +116,8 @@ namespace savr::timer_0 {
         /** fast pwm mode */
         [[maybe_unused]]
         static constexpr Value mode_fast_pwm = (1 << WGM01) | (1 << WGM00);
+    
+        using ControlRegister::operator=;
     };
     
     class ControlB: public details::ControlRegister<regs::control_b> {
@@ -175,6 +177,8 @@ namespace savr::timer_0 {
          */
         [[maybe_unused]]
         static constexpr Value mode_source_of_top_a = (1 << WGM02);
+    
+        using ControlRegister::operator=;
     };
     
     /**
@@ -234,6 +238,7 @@ namespace savr::timer_0 {
         using ControlRegister::operator&;
     };
     
+    [[maybe_unused]] static ControlA control_a;
     [[maybe_unused]] static ControlB control_b;
     [[maybe_unused]] static InterruptMask interrupt_mask;
     [[maybe_unused]] static InterruptFlag interrupt_flag;

@@ -161,3 +161,32 @@
 //    while(true) {}
 //    return 0;
 //}
+
+savr::logging::SyncLogger<savr::logging::Level::Debug, savr::usart::Usart<savr::usart::AsyncClock<>>> logger;
+
+int main() {
+    INFO("Start");
+    using namespace savr;
+    
+    if (mcu_status.is_set(McuStatus::power_on_reset)) {
+        INFO("Power on");
+    }
+    if (mcu_status.is_set(McuStatus::external_reset)) {
+        INFO("External reset");
+    }
+    if (mcu_status.is_set(McuStatus::watch_dog_system_reset)) {
+        INFO("Watch dog reset");
+    }
+    if (mcu_status.is_set(McuStatus::brown_out_reset)) {
+        INFO("Brown out reset");
+    }
+    mcu_status.clear();
+    
+    timer_0::control_b = timer_0::ControlB::source_prescaler_1024;
+    timer_0::control_a = timer_0::ControlA::mode_normal;
+    
+    while(true) {
+        uint8_t counter = timer_0::regs::counter;
+        INFO("Current timer: ", counter);
+    }
+}
