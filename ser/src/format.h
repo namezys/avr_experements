@@ -7,6 +7,11 @@
 namespace savr::format {
     namespace details {
         extern char buffer[];
+        
+        inline 
+        char hex(uint8_t value) {
+            return static_cast<char>(value < 10 ? '0' + value : 'A' + value - 10);
+        }
     }
     
     /** Format using common representation */
@@ -30,8 +35,8 @@ namespace savr::format {
             using namespace savr::format::details;
             buffer[0] = '0';
             buffer[1] = 'x';
-            buffer[2] = static_cast<char>('0' + value / 16);
-            buffer[3] = static_cast<char>('0' + value % 16);
+            buffer[2] = details::hex(value / 16);
+            buffer[3] = details::hex(value % 16);
             buffer[4] = 0;
             return buffer;
         }
@@ -50,8 +55,8 @@ namespace savr::format {
             }
             buffer[1] = '0';
             buffer[2] = 'x';
-            buffer[3] = static_cast<char>('0' + value / 16);
-            buffer[4] = static_cast<char>('0' + value % 16);
+            buffer[3] = details::hex(value / 16);
+            buffer[4] = details::hex(value % 16);
             buffer[5] = 0;
             return buffer;
         }
@@ -66,10 +71,10 @@ namespace savr::format {
             const uint8_t low = value;
             buffer[0] = '0';
             buffer[1] = 'x';
-            buffer[2] = static_cast<char>('0' + high / 16);
-            buffer[3] = static_cast<char>('0' + high % 16);
-            buffer[4] = static_cast<char>('0' + low / 16);
-            buffer[5] = static_cast<char>('0' + low % 16);
+            buffer[2] = details::hex(high / 16);
+            buffer[3] = details::hex(high % 16);
+            buffer[4] = details::hex(low / 16);
+            buffer[5] = details::hex(low % 16);
             buffer[6] = 0;
             return buffer;
         }
@@ -90,10 +95,10 @@ namespace savr::format {
             const uint8_t low = value;
             buffer[1] = '0';
             buffer[2] = 'x';
-            buffer[3] = static_cast<char>('0' + high / 16);
-            buffer[4] = static_cast<char>('0' + high % 16);
-            buffer[5] = static_cast<char>('0' + low / 16);
-            buffer[6] = static_cast<char>('0' + low % 16);
+            buffer[3] = details::hex(high / 16);
+            buffer[4] = details::hex(high % 16);
+            buffer[5] = details::hex(low / 16);
+            buffer[6] = details::hex(low % 16);
             buffer[7] = 0;
             return buffer;
         }
