@@ -182,16 +182,18 @@ int main() {
     }
     mcu_status.clear();
     
-//    timer_0::control_b = timer_0::ControlB::source_prescaler_1024;
-//    timer_0::control_a = timer_0::ControlA::mode_normal | timer_0::ControlA::output_a_toggle;
+    using namespace timer_0;
     
-    OCR0A = 0xFFu;
-    TCCR0A = (1 << COM0A0) | (1 << WGM01) | (1 << WGM00);
-    TCCR0B = (1 << CS02) | (1 << CS00);
+    timer_0::regs::output_compare_a = 0xFF;
+    timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
+    control_b = ControlB::source_prescaler_1024;
+    control_a = ControlA::mode_clear_on_match | ControlA::output_a_set_on_match | ControlA::output_b_clear_on_match;
     timer_0::output_a.init();
     timer_0::output_b.init();
     
     while(true) {
+        timer_0::regs::output_compare_a--;
+        timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
         uint8_t counter = timer_0::regs::counter;
         INFO("Current timer: ", counter);
     }
