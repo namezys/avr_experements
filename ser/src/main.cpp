@@ -183,7 +183,8 @@ int main() {
     mcu_status.clear();
     
     timer_0::control_b = timer_0::ControlB::source_prescaler_1024;
-    timer_0::control_a = timer_0::ControlA::mode_normal;
+    timer_0::control_a = timer_0::ControlA::mode_normal | timer_0::ControlA::output_a_toggle;
+    timer_0::output_a.init();
     
     while(true) {
         uint8_t counter = timer_0::regs::counter;

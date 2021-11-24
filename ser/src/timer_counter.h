@@ -31,10 +31,10 @@ namespace savr::timer_0 {
     public:
         /** These bits control the output compare pin (OC0A) behavior */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_a_mask = (1 << COM0A1) | (1 << COM0A0);
+        static constexpr Value output_a_mask = (1 << COM0A1) | (1 << COM0A0);
         /** Normal port operation, OC0A disconnected. */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_a_disabled = (0 << COM0A1) | (0 << COM0A0);
+        static constexpr Value output_a_disabled = (0 << COM0A1) | (0 << COM0A0);
         /**
          * non-PWM Mode:
          * * Toggle pin on compare match.
@@ -44,7 +44,7 @@ namespace savr::timer_0 {
          * * WGM02 = 1: Toggle pin on compare match.
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_a_toggle = (0 << COM0A1) | (1 << COM0A0);
+        static constexpr Value output_a_toggle = (0 << COM0A1) | (1 << COM0A0);
         /**
          * Clear pin on compare match when up-counting.
          *
@@ -52,7 +52,7 @@ namespace savr::timer_0 {
          * Phase Correct PWM Mode: set when down-counting
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_a_clear_on_match = (1 << COM0A1) | (0 << COM0A0);
+        static constexpr Value output_a_clear_on_match = (1 << COM0A1) | (0 << COM0A0);
         /**
          * Set OC0A on compare match when up-counting.
          *
@@ -60,15 +60,15 @@ namespace savr::timer_0 {
          * Phase Correct PWM Mode: clear when down-counting
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_a_set_on_match = (1 << COM0A1) | (1 << COM0A0);
+        static constexpr Value output_a_set_on_match = (1 << COM0A1) | (1 << COM0A0);
     
         /** These bits control the output compare pin (OC0B) behavior */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_b_mask = (1 << COM0B1) | (1 << COM0B0);
+        static constexpr Value output_b_mask = (1 << COM0B1) | (1 << COM0B0);
         
         /** Normal port operation, OC0B disconnected. */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_b_disabled = (0 << COM0B1) | (0 << COM0B0);
+        static constexpr Value output_b_disabled = (0 << COM0B1) | (0 << COM0B0);
         
         /**
          * non-PWM Mode:
@@ -77,7 +77,7 @@ namespace savr::timer_0 {
          * PWM modes: undefined
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_b_toggle = (0 << COM0B1) | (1 << COM0B0);
+        static constexpr Value output_b_toggle = (0 << COM0B1) | (1 << COM0B0);
         
         /**
          * Clear pin on compare match when up-counting.
@@ -86,7 +86,7 @@ namespace savr::timer_0 {
          * Phase Correct PWM Mode: set when down-counting
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_b_clear_on_match = (1 << COM0B1) | (0 << COM0B0);
+        static constexpr Value output_b_clear_on_match = (1 << COM0B1) | (0 << COM0B0);
         
         /**
          * Set OC0A on compare match when up-counting.
@@ -95,7 +95,7 @@ namespace savr::timer_0 {
          * Phase Correct PWM Mode: clear when down-counting
          */
         [[maybe_unused]]
-        static constexpr Value compare_output_mode_b_set_on_match = (1 << COM0B1) | (1 << COM0B0);
+        static constexpr Value output_b_set_on_match = (1 << COM0B1) | (1 << COM0B0);
     
         /** Mask of control the counting sequence of the counter */
         [[maybe_unused]]
@@ -244,6 +244,6 @@ namespace savr::timer_0 {
     [[maybe_unused]] static InterruptFlag interrupt_flag;
     [[maybe_unused]] static port::Output<port::PortD, 4> clock_output(false);
     [[maybe_unused]] static port::Input<port::PortD, 4> clock_input(false);
-    [[maybe_unused]] static port::Output<port::PortD, 6> compare_output_a(false);
-    [[maybe_unused]] static port::Output<port::PortD, 5> compare_output_b(false);
+    [[maybe_unused]] static port::Output<port::PortD, 6> output_a(false);
+    [[maybe_unused]] static port::Output<port::PortD, 5> output_b(false);
 }
