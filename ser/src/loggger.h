@@ -1,88 +1,106 @@
 #pragma once
 
 #include "str.h"
+#include "format.h"
 
-namespace sarv {
-    namespace logging {
-        enum class Level {
-            Error,
-            Info,
-            Debug
-        };
+/**
+ * Logging system for output messages to USART.
+ *
+ * You should define Logger with name logger in current scope and use macros ERROR/INFO/DEBUG.
+ *
+ * Only one parameter in macros is supported right now.
+ */
+namespace savr::logging {
     
-        template<Level _level, class Usart>
-        class SyncLogger: protected Usart {
+    /** Log level. Lower that defined will be removed from code */
+    enum class Level {
+        Error [[maybe_unused]],
+        Info [[maybe_unused]],
+        Debug [[maybe_unused]]
+    };
+    
+    /**
+     * Synchronize logger which will output data to usart until last symbol will be write to data buffer.
+     *
+     * Logger inherit usart interface.
+     *
+     * @tparam _level lower log level
+     * @tparam Usart Usart class which is used for output
+     */
+    template<Level _level, class Usart>
+    class [[maybe_unused]] SyncLogger: public Usart {
         
-            static
-            bool is_enabled(Level a_level) {
-                switch(_level) {
-                    case Level::Error:
-                        return a_level == Level::Error;
-                    case Level::Info:
-                        return a_level == Level::Error || a_level == Level::Info;
-                    default:
-                        return true;
-                }
+        static
+        bool is_enabled(Level a_level) {
+            switch(_level) {
+                case Level::Error:
+                    return a_level == Level::Error;
+                case Level::Info:
+                    return a_level == Level::Error || a_level == Level::Info;
+                default:
+                    return true;
             }
+        }
         
-            void _log(const sarv::PmStr& str) {
+    public:
+        SyncLogger() : Usart(true) {}
+    
+        [[maybe_unused]]
+        void log(Level a_level, PmStr str) {
+            if(is_enabled(a_level)) {
                 Usart::sync_send(str);
+                Usart::sync_send('\n');
             }
-            
-            void _log_hex(uint8_t value) {
-                char buffer[] = " 0x00";
-                buffer[4] = '0' + value % 16;
-                buffer[3] = '0' + value / 16;
-                Usart::sync_send_string(buffer);
-            }
-    
-            void _log_hex(uint16_t value) {
-                char buffer[] = " 0x0000";
-                buffer[6] = '0' + value % 16;
-                value /= 16;
-                buffer[5] = '0' + value % 16;
-                value / 16;
-                buffer[4] = '0' + value % 16;
-                value /= 16;
-                buffer[3] = '0' + value;
-                Usart::sync_send_string(buffer);
-            }
-    
-        public:
-            SyncLogger(): Usart(true) {}
+        }
         
-            void log(Level a_level, const sarv::PmStr& str) {
-                if (is_enabled(a_level)) {
-                    Usart::sync_send(str);
-                    Usart::sync_send('\n');
-                }
+        template<class T>
+        [[maybe_unused]]
+        void log(Level a_level, PmStr str, T v) {
+            using namespace savr::format;
+            if(is_enabled(a_level)) {
+                Usart::sync_send(str);
+                Usart::sync_send(Fmt<T>::format(v));
+                Usart::sync_send('\n');
             }
+        }
+    };
     
-            template<class T>
-            void log(Level a_level, const sarv::PmStr& str, const T& v) {
-                if (is_enabled(a_level)) {
-                    Usart::sync_send(str);
-                    _log_hex(v);
-                    Usart::sync_send('\n');
-                }
-            }
-        };
+    /**
+     * Fake logger which will not output anything.
+     *
+     * Using just as replace class for SyncLogger.
+     *
+     * Provide fake Usart interface
+     *
+     * @tparam _level not used
+     * @tparam Usart not used
+     */
+    template<Level _level, class Usart>
+    class [[maybe_unused]] DummyLogger {
+    public:
+        // TODO: implement fakse USART
     
-        template<Level _level, class Usart>
-        class DummyLogger {
-        public:
-            static
-            void log(Level a_level, const sarv::PmStr& str) {
-            }
-            
-            template<class T>
-            void log(Level a_level, const sarv::PmStr& str, const T& v) {
-            }
-        };
-    }
+        [[maybe_unused]]
+        static
+        void log(Level, savr::PmStr) {
+        }
+        
+        template<class T>
+        [[maybe_unused]]
+        void log(Level, savr::PmStr, const T &) {
+        }
+    };
 }
 
+/** Log message with log level. At least message must be provided. Message will be put into flash/ROM space. */
 #define LOG(level, str, ...) logger.log(level, P(str), ## __VA_ARGS__)
-#define ERROR(str, ...) LOG(sarv::logging::Level::Error, str, ##__VA_ARGS__)
-#define INFO(str, ...) LOG(sarv::logging::Level::Info, str, ##__VA_ARGS__)
-#define DEBUG(str, ...) LOG(sarv::logging::Level::Debug, str, ##__VA_ARGS__)
+
+/** Log error message. At least message must be provided. Message will be put into flash/ROM space. */
+#define ERROR(str, ...) LOG(savr::logging::Level::Error, str, ##__VA_ARGS__)
+
+/** Log info message. At least message must be provided. Message will be put into flash/ROM space. */
+#define INFO(str, ...) LOG(savr::logging::Level::Info, str, ##__VA_ARGS__)
+
+/** Log debug message. At least message must be provided. Message will be put into flash/ROM space. */
+#define DEBUG(str, ...) LOG(savr::logging::Level::Debug, str, ##__VA_ARGS__)
+

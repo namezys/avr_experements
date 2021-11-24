@@ -2,47 +2,67 @@
 
 #include <avr/pgmspace.h>
 
-namespace sarv {
-    
-    
+namespace savr::details {
     class BaseStr {
     protected:
-        const char* _ptr;
-        
+        const char *_ptr;
+    
     public:
-        explicit BaseStr(const char* ptr): _ptr(ptr)
-        {}
-        
+        BaseStr(const char *ptr) : _ptr(ptr) {}
+    
+        [[maybe_unused]]
         void incr() {
             _ptr++;
         }
-        
-        const char* ptr() const {
+    
+        [[maybe_unused]] [[nodiscard]]
+        const char *ptr() const {
             return _ptr;
         }
-    };
     
-    class ConstStr: public BaseStr {
+        [[maybe_unused]]
+        void operator++() {
+            incr();
+        }
+    
+        [[maybe_unused]]
+        void operator++(int) {
+            incr();
+        }
+    };
+}
+
+namespace savr {
+    
+    /** Store string as address which is located in RAM space */
+    class ConstStr: public details::BaseStr {
     public:
         using BaseStr::BaseStr;
         
+        /** Get current value at address */
+        [[maybe_unused]] [[nodiscard]]
         char get() const {
             return *_ptr;
         }
-        
+    
+        [[maybe_unused]] [[nodiscard]]
         char operator*() const {
             return get();
         }
     };
     
-    class PmStr: public BaseStr {
+    /** Store string as address which is located in flash (ROM) space */
+    class PmStr: public details::BaseStr {
     public:
         using BaseStr::BaseStr;
-    
-        char get() const {
+        
+        /** Get current value at address */
+        [[maybe_unused]] [[nodiscard]]
+        char get() const { // NOLINT
             return pgm_read_byte(_ptr);
         }
     
+        [[maybe_unused]] [[nodiscard]]
         char operator*() const {
             return get();
         }
@@ -50,8 +70,12 @@ namespace sarv {
     
 }
 
-#define P(x) sarv::PmStr(PSTR(x))
-#define S(x) sarv::ConstStr(x)
+/** Put string literal into flash/ROM and wrap it */
+#define P(value) savr::PmStr(PSTR(value))
+/** Put string literal into RAM and wrap it */
+#define S(value) savr::ConstStr(value)
 
-#define PN(x) P(x "\n")
-#define SN(x) P(x "\n")
+/** Put string literal into flash/ROM with new line at the end of string and wrap it */
+#define PN(value) P(value "\n")
+/** Put string literal into RAM with new line at the end of string and wrap it */
+#define SN(value) P(value "\n")
