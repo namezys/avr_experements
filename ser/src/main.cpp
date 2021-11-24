@@ -3,6 +3,7 @@
 
 #include "usart.h"
 #include "reset_status.h"
+#include "timer_counter.h"
 #include "port.h"
 #include "loggger.h"
 #include "format.h"

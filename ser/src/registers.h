@@ -117,12 +117,12 @@ namespace savr::details {
         }
     
         [[nodiscard]]
-        bool operator&(Value value) const {
+        uint8_t operator&(Value value) const {
             return reg & value._value;
         }
     
         [[nodiscard]]
-        bool operator|(Value value) const {
+        uint8_t operator|(Value value) const {
             return reg | value._value;
         }
     

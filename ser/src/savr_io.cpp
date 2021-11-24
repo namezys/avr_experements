@@ -35,4 +35,14 @@ namespace savr {
             volatile uint8_t port IO(PORTD, 0x0B);
         }
     }
+    
+    namespace timer_0::regs {
+        volatile uint8_t control_a IO(TCCR0A, 0x24);
+        volatile uint8_t control_b IO(TCCR0B, 0x25);
+        volatile uint8_t counter IO(TCNT0, 0x26);
+        volatile uint8_t output_compare_a IO(OCR0A, 0x27);
+        volatile uint8_t output_compare_b IO(OCR0B, 0x28);
+        volatile uint8_t interrupt_mask MEM(TIMSK0, 0x6E);
+        volatile uint8_t interrupt_flag IO(TIFR0, 0x15);
+    }
 };

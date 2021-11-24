@@ -44,4 +44,14 @@ namespace savr {
             extern volatile uint8_t port EXTERN_IO(PORTD, 0x0B);
         }
     }
+    
+    namespace timer_0::regs {
+        extern volatile uint8_t control_a EXTERN_IO(TCCR0A, 0x24);
+        extern volatile uint8_t control_b EXTERN_IO(TCCR0B, 0x25);
+        extern volatile uint8_t counter EXTERN_IO(TCNT0, 0x26);
+        extern volatile uint8_t output_compare_a EXTERN_IO(OCR0A, 0x27);
+        extern volatile uint8_t output_compare_b EXTERN_IO(OCR0B, 0x28);
+        extern volatile uint8_t interrupt_mask EXTERN_MEM(TIMSK0, 0x6E);
+        extern volatile uint8_t interrupt_flag EXTERN_IO(TIFR0, 0x15);
+    }
 };
