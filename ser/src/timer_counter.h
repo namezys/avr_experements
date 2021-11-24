@@ -111,7 +111,7 @@ namespace savr::timer_0 {
         
         /** clear timer on compare match (CTC) mode */
         [[maybe_unused]]
-        static constexpr Value mode_clear_on_match = (1 << WGM01) | (1 << WGM00);
+        static constexpr Value mode_clear_on_match = (1 << WGM01) | (0 << WGM00);
     
         /** fast pwm mode */
         [[maybe_unused]]

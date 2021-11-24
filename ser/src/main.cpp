@@ -182,9 +182,14 @@ int main() {
     }
     mcu_status.clear();
     
-    timer_0::control_b = timer_0::ControlB::source_prescaler_1024;
-    timer_0::control_a = timer_0::ControlA::mode_normal | timer_0::ControlA::output_a_toggle;
+//    timer_0::control_b = timer_0::ControlB::source_prescaler_1024;
+//    timer_0::control_a = timer_0::ControlA::mode_normal | timer_0::ControlA::output_a_toggle;
+    
+    OCR0A = 0xFFu;
+    TCCR0A = (1 << COM0A0) | (1 << WGM01) | (1 << WGM00);
+    TCCR0B = (1 << CS02) | (1 << CS00);
     timer_0::output_a.init();
+    timer_0::output_b.init();
     
     while(true) {
         uint8_t counter = timer_0::regs::counter;
