@@ -1,5 +1,6 @@
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 
 #include "usart.h"
 #include "reset_status.h"
@@ -163,38 +164,595 @@
 //}
 
 savr::logging::SyncLogger<savr::logging::Level::Debug, savr::usart::Usart<savr::usart::AsyncClock<>>> logger;
+//
+//int main() {
+//    INFO("Start");
+//    using namespace savr;
+//
+//    if (mcu_status.is_set(McuStatus::power_on_reset)) {
+//        INFO("Power on");
+//    }
+//    if (mcu_status.is_set(McuStatus::external_reset)) {
+//        INFO("External reset");
+//    }
+//    if (mcu_status.is_set(McuStatus::watch_dog_system_reset)) {
+//        INFO("Watch dog reset");
+//    }
+//    if (mcu_status.is_set(McuStatus::brown_out_reset)) {
+//        INFO("Brown out reset");
+//    }
+//    mcu_status.clear();
+//
+//    using namespace timer_0;
+//
+//    timer_0::regs::output_compare_a = 0xFF;
+//    timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
+//    control_b = ControlB::source_prescaler_1024;
+//    control_a = ControlA::mode_clear_on_match | ControlA::output_a_set_on_match | ControlA::output_b_clear_on_match;
+//    timer_0::output_a.init();
+//    timer_0::output_b.init();
+//
+//    while(true) {
+//        timer_0::regs::output_compare_a--;
+//        timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
+//        uint8_t counter = timer_0::regs::counter;
+//        INFO("Current timer: ", counter);
+//    }
+//}
+//
+//
+//template<uint8_t size>
+//class ThreadStack {
+//    uint8_t stack[size];
+//
+//};
+//
+//class Lock {
+//public:
+//
+//};
+//
+//class Task {
+//public:
+//    static
+//    void run() {
+//        asm volatile ("TASK1");
+//    }
+//
+//    static constexpr
+//    uint8_t thread_mask() {
+//        return 0x01u;
+//    }
+//};
+//
+//class Task2 {
+//public:
+//    static
+//    void run() {
+//        asm volatile ("TASK2");
+//
+//    }
+//
+//    static constexpr
+//    uint8_t thread_mask() {
+//        constexpr uint8_t previous_mask = Task::thread_mask();
+//        static_assert(previous_mask != 0x80u, "Attempt to create 9th task");
+//        return previous_mask << 1;
+//    }
+//};
+//
+//
+//volatile uint8_t BaseScheduler::_ready_mask = 0x0;
+////
+////class Mutex {
+////    volatile uint8_t _mask;
+////
+////public:
+////    void lock() {
+////
+////    }
+////
+////    void try_lock() {
+////    }
+////
+////    void unlock() {
+////
+////    }
+////};
+//
+//template<class PreviousTask>
+//class NTask {
+//
+//private:
+//
+//
+//    class Mutex {
+//    private:
+//        volatile uint8_t _mask;
+//    public:
+//        void lock() {
+//            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+//                const auto current_mask = NTask::thread_mask();
+//                _mask |= current_mask;
+//                BaseScheduler::block_and_reschedule(current_mask);
+//            }
+//        }
+//
+//        bool try_lock() {
+//            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+//                const auto mask = _mask;
+//                const auto current_mask = NTask::thread_mask();
+//                if(mask != 0x0) {
+//                    return false;
+//                }
+//                _mask = mask | current_mask;
+//                BaseScheduler::block_and_reschedule(current_mask);
+//            }
+//        }
+//
+//        void unlock() {
+//            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+//                BaseScheduler::unblock_and_reschedule(_mask);
+//            }
+//        }
+//    };
+//
+//public:
+//    static constexpr
+//    uint8_t thread_mask() {
+//        constexpr uint8_t previous_mask = PreviousTask::thread_mask();
+//        static_assert(previous_mask != 0x80u, "Attempt to create 9th task");
+//        return previous_mask << 1;
+//    }
+//
+//
+//    static
+//    void execution() {
+//
+//    }
+//};
+//
+//
+//class Scheduler: public BaseScheduler {
+//    Task task_1;
+//    Task2 task_2;
+//
+//
+//public:
+//
+//    template<class>
+//    uint8_t constexpr task_id() {
+//        return 0;
+//    }
+//
+//    static
+//    void schedule() {
+//        uint8_t ready_mask = _ready_mask;
+//        if(Task::thread_mask() & ready_mask) {
+//            Task::run();
+//            return;
+//        }
+//        if(Task2::thread_mask() & ready_mask) {
+//            Task2::run();
+//            return;
+//        }
+//    }
+//
+//    void run_task() {
+//
+//    }
+//};
+
+class BaseScheduler {
+public:
+    static volatile uint8_t _ready_mask;
+    static volatile uint8_t _current_thread;
+
+public:
+    
+    using TaskId = uint8_t;
+    using TaskMask = uint8_t;
+    
+    static
+    void block_and_reschedule(TaskMask block) {
+        _ready_mask = block;
+        asm volatile("BLOCK AND RESH %0"::"r"(_ready_mask));
+    }
+    
+    static
+    void unblock_and_reschedule(TaskMask block) {
+        _ready_mask = block;
+        asm volatile("UNBLOCK AND RESH %0"::"r"(_ready_mask));
+    }
+    
+    static
+    void unblock(uint8_t block) {
+    }
+};
+
+
+class AbstractTaskEnvironment {
+public:
+    using TaskId = BaseScheduler::TaskId;
+    using TaskMask = BaseScheduler::TaskMask;
+
+private:
+    static constexpr
+    TaskMask _higher_task_mask(TaskMask mask) {
+        return mask == 0x01u ? 0x01u : mask | _higher_task_mask(mask >> 1);
+    }
+    
+public:
+    /**
+     * Task id is sequential number of task.
+     * Task with lower id has higher priority and will be guaranty scheduled if it is ready
+     * @return sequentiol number from 1 up to scheduler limit
+     */
+    static constexpr
+    TaskId task_id() {
+        return 2;
+    }
+    
+    /**
+     * Mask of task in scheduler task list
+     * @return
+     */
+    static constexpr
+    TaskMask task_mask() {
+        static_assert(task_id() <= sizeof(TaskMask) * 8, "Task count limit");
+        return 0x1u << task_id();
+    }
+    
+    static constexpr
+    TaskMask higher_task_mask() {
+        return _higher_task_mask(task_mask() >> 1);
+    }
+    
+    /** Allow to reschedule another task */
+    void yield();
+    
+    /**
+     * Block execution until next unblock will call and reschedule
+     */
+    static
+    void block();
+    
+    /**
+     * Unblock and allow to reschedule
+     */
+    void unblock();
+    
+    /**
+     * Try to reschedule in assumption that new task was unblocked by some event
+     */
+    void reschedule();
+    
+    /**
+     * Unblock task according mask without reschedule
+     *
+     * @param mask
+     */
+    void unlock(TaskMask mask);
+    
+    /**
+     * Unblock task according mask and try to reschedule only if more priority task was ublocked
+     * by this call
+     */
+    void unblock_and_reschedule_only_unblocked(TaskMask mask) {
+        unlock(mask);
+        if (mask & higher_task_mask()) {
+            reschedule();
+        }
+    }
+};
+
+/**
+ * Task synchronization non recursive mutex.
+ *
+ * Recursive behaviour is undefined.
+ */
+class Mutex {
+    volatile uint8_t _mutex_mask = 0x0;
+public:
+    using TaskMask = BaseScheduler::TaskMask;
+    
+    /**
+     * Lock for process with mask.
+     * @param mask task mask
+     * @return true if lock was acquired and execution can be continue
+     */
+    bool lock(TaskMask mask) {
+        const auto new_mask = _mutex_mask | mask;
+        _mutex_mask = new_mask;
+        return new_mask == mask;
+    }
+    
+    /**
+     * Try to lock
+     * @param mask
+     * @return true if lock was acquired and false if mutex is locked before call
+     */
+    bool try_lock(TaskMask mask) {
+        if(_mutex_mask == 0x0) {
+            _mutex_mask = mask;
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Unlock.
+     *
+     * If mutex is not locked, behaviour is undefined
+     */
+    TaskMask unlock() {
+        const auto mask = _mutex_mask;
+        _mutex_mask = 0x0;
+        return mask;
+    }
+};
+
+class InterraptableEnvironment: public AbstractTaskEnvironment {
+public:
+    using Parent = AbstractTaskEnvironment;
+    
+    
+    /** Atomic execution */
+    class Atomic {
+    public:
+        explicit Atomic() {
+            cli();
+        }
+        
+        ~Atomic() {
+            sei();
+        }
+    };
+    
+    static
+    bool try_lock_mutex(Mutex& mutex) {
+        Atomic _;
+        return mutex.try_lock(task_mask());
+    }
+    
+    static
+    void lock_mutex(Mutex& mutex) {
+        Atomic _;
+        if (!mutex.lock(task_mask())) {
+            BaseScheduler::block_and_reschedule(task_mask());
+        }
+    }
+    
+    static
+    void unlock_mutex(Mutex& mutex) {
+        Atomic _;
+        const auto mask = mutex.unlock();
+        BaseScheduler::unblock_and_reschedule(mask);
+    }
+  
+    class MutexLock {
+        Mutex& _mutex;
+    public:
+        explicit MutexLock(Mutex& mutex): _mutex(mutex) {
+            lock_mutex(mutex);
+        }
+        ~MutexLock() {
+            unlock_mutex(_mutex);
+        }
+    };
+};
+
+
+Mutex m;
+
+extern "C" [[gnu::noinline]]
+void context_switch()
+{
+    asm volatile(
+            "JMP "
+            :
+            );
+}
+
+using TaskId = uint8_t;
+using TaskMask = uint8_t;
+const uint8_t default_task_stack_size = 64;
+using TaskFunction = void(*)();
+
+template<class T, uint8_t t_stack_size=default_task_stack_size>
+class TaskWithStack {
+private:
+    static
+    uint8_t* _stack_storage()
+    {
+        static uint8_t storage[_stack_size];
+        return storage;
+    }
+    
+    static
+    uint16_t _stack_pointer_storage(uint16_t new_value, bool save) {
+        static uint16_t storage = 0;
+        if (save) {
+            storage = new_value;
+        }
+        return storage;
+    }
+    
+public:
+    static constexpr uint8_t _stack_size = t_stack_size;
+    
+    /**
+     * Init stack and put start address to stack.
+     *
+     * After initialization stack will contains start address and stack pointer will
+     * be point to next free element on stack.
+     *
+     * In this case context switch will run start_task immediately after switching
+     */
+    static
+    void init_stack(TaskFunction task) {
+        uint16_t start_add = reinterpret_cast<uint16_t>(task);
+        _stack_storage()[_stack_size - 1] = start_add;
+        _stack_storage()[_stack_size - 2] = start_add >> 8;
+        _stack_pointer_storage(reinterpret_cast<uint16_t>(_stack_storage() + _stack_size - 3), true);
+    }
+    
+    /** Highest stack address, initial value of stack */
+    static constexpr
+    uint16_t stack_bottom()
+    {
+        return stack_top() + _stack_size - 1;
+    }
+    
+    /** Top of stack, last address which can be used on stask */
+    static constexpr
+    uint16_t stack_top()
+    {
+        return reinterpret_cast<uint16_t>(_stack_storage());
+    }
+    
+    /** Current stack value that was saved */
+    static
+    uint16_t stack()
+    {
+        return _stack_pointer_storage(0, false);
+    }
+    
+    /** Set current stack pointer */
+    static
+    void set_stack(uint16_t pointer) {
+        _stack_pointer_storage(pointer, true);
+    }
+};
+
+class InitialTask {
+};
+
+template<class PreviousTask=InitialTask>
+class TaskWithIdentifier {
+public:
+    static_assert(PreviousTask::task_id() <= sizeof(TaskMask) * 8, "Out of task mask");
+    
+    static constexpr
+    TaskId task_id() {
+        return PreviousTask::task_id() + 1;
+    }
+    
+    static constexpr
+    TaskMask task_mask() {
+        static_assert(task_id() <= sizeof(TaskMask) * 8, "Task count limit");
+        return 0x1u << task_id();
+    }
+};
+
+template<>
+class TaskWithIdentifier<InitialTask> {
+public:
+    static constexpr
+    TaskId task_id() {
+        return 0;
+    }
+    
+    static constexpr
+    TaskMask task_mask() {
+        static_assert(task_id() <= sizeof(TaskMask) * 8, "Task count limit");
+        return 0x1u << task_id();
+    }
+};
+
+class FirstTask: public TaskWithStack<FirstTask>, public TaskWithIdentifier<> {
+public:
+
+};
+
+class SecondTask: public TaskWithStack<SecondTask>, public TaskWithIdentifier<FirstTask> {
+public:
+
+};
+
+class ThirdTask: public TaskWithStack<ThirdTask>, public TaskWithIdentifier<SecondTask> {
+public:
+    static __attribute__ ((OS_task))
+    void task()
+    {
+    }
+};
+
+class EmptyTask {
+public:
+
+};
+
+volatile TaskMask ready_mask = 0x01u;
+
+extern "C"
+void reschedule()
+{
+    while(true) {
+        const auto mask = ready_mask;
+        if(mask & FirstTask::task_mask()) {
+            SP = FirstTask::stack();
+            return;
+        }
+        if(mask & SecondTask::task_mask()) {
+            SP = SecondTask::stack();
+            return;
+        }
+        if(mask & ThirdTask::task_mask()) {
+            SP = ThirdTask::stack();
+            return;
+        }
+    }
+}
+
+inline __attribute__((always_inline))
+void try_reschedule()
+{
+    asm volatile(
+    "in r24, __SREG__\n\t"
+    "push r24\n\t"
+    "CALL reschedule\n\t"
+    "pop r24\n\t"
+    "out __SREG__, r24\n\t"
+    //"LDI r1, 0\n\t"
+    ::
+    "m"(reschedule)
+    :
+    "r0", "r1",
+    "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17",
+    "r28", "r29"
+    );
+}
+
+volatile uint8_t a1, a2, a3, a4, a5, a6;
+
+[[noreturn]] __attribute__ ((OS_task))
+void first_function()
+{
+    while(true) {
+        INFO("WOW RUN FIRST");
+        ready_mask = 0x02u;
+        try_reschedule();
+        INFO("WOW CONTINUE FIRST");
+    }
+}
+
+__attribute__ ((OS_task))
+void second_function()
+{
+    while(true) {
+        INFO("WOW RUN SECOND");
+        ready_mask = 0x03u;
+        try_reschedule();
+        INFO("WOW CONTINUE SECOND");
+    }
+}
 
 int main() {
-    INFO("Start");
-    using namespace savr;
-    
-    if (mcu_status.is_set(McuStatus::power_on_reset)) {
-        INFO("Power on");
-    }
-    if (mcu_status.is_set(McuStatus::external_reset)) {
-        INFO("External reset");
-    }
-    if (mcu_status.is_set(McuStatus::watch_dog_system_reset)) {
-        INFO("Watch dog reset");
-    }
-    if (mcu_status.is_set(McuStatus::brown_out_reset)) {
-        INFO("Brown out reset");
-    }
-    mcu_status.clear();
-    
-    using namespace timer_0;
-    
-    timer_0::regs::output_compare_a = 0xFF;
-    timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
-    control_b = ControlB::source_prescaler_1024;
-    control_a = ControlA::mode_clear_on_match | ControlA::output_a_set_on_match | ControlA::output_b_clear_on_match;
-    timer_0::output_a.init();
-    timer_0::output_b.init();
-    
-    while(true) {
-        timer_0::regs::output_compare_a--;
-        timer_0::regs::output_compare_b = timer_0::regs::output_compare_a / 2;
-        uint8_t counter = timer_0::regs::counter;
-        INFO("Current timer: ", counter);
-    }
+    FirstTask::init_stack(first_function);
+    SecondTask::init_stack(second_function);
+    ThirdTask::init_stack(ThirdTask::task);
+    ready_mask = 0x01;
+    reschedule();
+//    return FirstTask::stack() + SecondTask::stack() + ThirdTask::stack();
 }
