@@ -370,6 +370,7 @@ public:
     }
 };
 
+volatile uint8_t BaseScheduler::_ready_mask = 0x0;
 
 class AbstractTaskEnvironment {
 public:
@@ -545,23 +546,19 @@ public:
 
 Mutex m;
 
-extern "C" [[gnu::noinline]]
-void context_switch()
-{
-    asm volatile(
-            "JMP "
-            :
-            );
-}
-
 using TaskId = uint8_t;
 using TaskMask = uint8_t;
 const uint8_t default_task_stack_size = 64;
 using TaskFunction = void(*)();
 
+
+inline __attribute__((always_inline))
+void inline_global_reschedule();
+
+
 template<class T, uint8_t t_stack_size=default_task_stack_size>
 class TaskWithStack {
-private:
+public:
     static
     uint8_t* _stack_storage()
     {
@@ -570,16 +567,14 @@ private:
     }
     
     static
-    uint16_t _stack_pointer_storage(uint16_t new_value, bool save) {
+    uint16_t& _stack_pointer_storage() {
         static uint16_t storage = 0;
-        if (save) {
-            storage = new_value;
-        }
         return storage;
     }
     
 public:
     static constexpr uint8_t _stack_size = t_stack_size;
+    static constexpr bool is_empty_task = false;
     
     /**
      * Init stack and put start address to stack.
@@ -594,7 +589,7 @@ public:
         uint16_t start_add = reinterpret_cast<uint16_t>(task);
         _stack_storage()[_stack_size - 1] = start_add;
         _stack_storage()[_stack_size - 2] = start_add >> 8;
-        _stack_pointer_storage(reinterpret_cast<uint16_t>(_stack_storage() + _stack_size - 3), true);
+        _stack_pointer_storage() = reinterpret_cast<uint16_t>(_stack_storage() + _stack_size - 3);
     }
     
     /** Highest stack address, initial value of stack */
@@ -615,15 +610,52 @@ public:
     static
     uint16_t stack()
     {
-        return _stack_pointer_storage(0, false);
+        return _stack_pointer_storage();
     }
     
     /** Set current stack pointer */
     static
     void set_stack(uint16_t pointer) {
-        _stack_pointer_storage(pointer, true);
+        _stack_pointer_storage() = pointer;
+    }
+    
+    [[noreturn]] static __attribute__ ((OS_task))
+    void _initial_start()
+    {
+        T::task();
+    }
+    
+    static inline __attribute__((always_inline))
+    void yield()
+    {
+        asm volatile(
+        // save status reg
+        "in r24, __SREG__\n\t"
+        "push r24\n\t"
+        "CALL %x0\n\t"
+        // read status reg
+        "pop r24\n\t"
+        "out __SREG__, r24\n\t"
+        // restore zero register
+        "clr __zero_reg__\n\t"
+        ::
+        "s"(reschedule)
+        :
+        "r0", "r1",
+        "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17",
+        "r28", "r29"
+        );
+    }
+    
+    static
+    void reschedule()
+    {
+        _stack_pointer_storage() = SP;
+        inline_global_reschedule();
     }
 };
+
+
 
 class InitialTask {
 };
@@ -662,97 +694,147 @@ public:
 
 class FirstTask: public TaskWithStack<FirstTask>, public TaskWithIdentifier<> {
 public:
-
+    [[noreturn]]
+    static
+    void task()
+    {
+        while(true) {
+            INFO("WOW RUN FIRST");
+            BaseScheduler::_ready_mask = 0x02u;
+            yield();
+            INFO("WOW CONTINUE FIRST");
+        }
+    }
 };
 
 class SecondTask: public TaskWithStack<SecondTask>, public TaskWithIdentifier<FirstTask> {
 public:
-
+    [[noreturn]]
+    static
+    void task()
+    {
+        while(true) {
+            INFO("WOW RUN SECOND");
+            BaseScheduler::_ready_mask = 0x03u;
+            yield();
+            INFO("WOW CONTINUE SECOND");
+        }
+    }
 };
 
 class ThirdTask: public TaskWithStack<ThirdTask>, public TaskWithIdentifier<SecondTask> {
 public:
-    static __attribute__ ((OS_task))
+    [[noreturn]]
+    static
     void task()
     {
+        while(true) {
+            yield();
+        }
     }
 };
 
 class EmptyTask {
 public:
-
+    static constexpr bool is_empty_task = true;
+    
+    static
+    void init_stack(TaskFunction task) {}
+    
+    static void _initial_start() {}
+    
+    static constexpr
+    TaskMask task_mask() {
+        return 0;
+    }
+    
+    static constexpr
+    uint16_t stack() {
+        return 0;
+    }
 };
 
-volatile TaskMask ready_mask = 0x01u;
-
-extern "C"
-void reschedule()
-{
-    while(true) {
-        const auto mask = ready_mask;
-        if(mask & FirstTask::task_mask()) {
-            SP = FirstTask::stack();
-            return;
-        }
-        if(mask & SecondTask::task_mask()) {
-            SP = SecondTask::stack();
-            return;
-        }
-        if(mask & ThirdTask::task_mask()) {
-            SP = ThirdTask::stack();
-            return;
+template<class T1=EmptyTask, class T2=EmptyTask, class T3=EmptyTask, class T4=EmptyTask,
+        class T5=EmptyTask, class T6=EmptyTask, class T7=EmptyTask, class T8=EmptyTask>
+class Schedule: public BaseScheduler {
+    
+    template<class T> static
+    void _init_task() {
+        if(!T::is_empty_task) {
+            T::init_stack(T::_initial_start);
         }
     }
-}
-
-inline __attribute__((always_inline))
-void try_reschedule()
-{
-    asm volatile(
-    "in r24, __SREG__\n\t"
-    "push r24\n\t"
-    "CALL reschedule\n\t"
-    "pop r24\n\t"
-    "out __SREG__, r24\n\t"
-    //"LDI r1, 0\n\t"
-    ::
-    "m"(reschedule)
-    :
-    "r0", "r1",
-    "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17",
-    "r28", "r29"
-    );
-}
-
-volatile uint8_t a1, a2, a3, a4, a5, a6;
-
-[[noreturn]] __attribute__ ((OS_task))
-void first_function()
-{
-    while(true) {
-        INFO("WOW RUN FIRST");
-        ready_mask = 0x02u;
-        try_reschedule();
-        INFO("WOW CONTINUE FIRST");
+public:
+    static
+    void init()
+    {
+        _init_task<T1>();
+        _init_task<T2>();
+        _init_task<T3>();
+        _init_task<T4>();
+        _init_task<T5>();
+        _init_task<T6>();
+        _init_task<T7>();
+        _init_task<T8>();
     }
-}
-
-__attribute__ ((OS_task))
-void second_function()
-{
-    while(true) {
-        INFO("WOW RUN SECOND");
-        ready_mask = 0x03u;
-        try_reschedule();
-        INFO("WOW CONTINUE SECOND");
+    
+    inline __attribute__((always_inline))
+    static
+    void schedule()
+    {
+        while(true) {
+            const auto mask = BaseScheduler::_ready_mask;
+            if(mask & T1::task_mask()) {
+                SP = T1::stack();
+                return;
+            }
+            if(mask & T2::task_mask()) {
+                SP = T2::stack();
+                return;
+            }
+            if(mask & T3::task_mask()) {
+                SP = T3::stack();
+                return;
+            }
+            if(mask & T4::task_mask()) {
+                SP = T4::stack();
+                return;
+            }
+            if(mask & T5::task_mask()) {
+                SP = T5::stack();
+                return;
+            }
+            if(mask & T6::task_mask()) {
+                SP = T6::stack();
+                return;
+            }
+            if(mask & T7::task_mask()) {
+                SP = T7::stack();
+                return;
+            }
+            if(mask & T8::task_mask()) {
+                SP = T8::stack();
+                return;
+            }
+        }
     }
+    
+    static
+    void run()
+    {
+        schedule();
+    }
+};
+
+using Sh = Schedule<FirstTask, SecondTask, ThirdTask>;
+
+void inline_global_reschedule()
+{
+    Sh::schedule();
 }
 
 int main() {
-    FirstTask::init_stack(first_function);
-    SecondTask::init_stack(second_function);
-    ThirdTask::init_stack(ThirdTask::task);
-    ready_mask = 0x01;
-    reschedule();
-//    return FirstTask::stack() + SecondTask::stack() + ThirdTask::stack();
+    Sh::init();
+    Sh::_ready_mask = 0x01;
+    Sh::run();
 }
